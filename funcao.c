@@ -21,8 +21,8 @@ int carregarClientes(ListaDeCliente *lt, const char *nome) {
     while (fgets(linha, sizeof(linha), fp) != NULL && lt->qtd_cliente < Total_Cliente) {
         Cliente *cliente = &lt->clientes[lt->qtd_cliente];
         if (sscanf(linha, "%99[^;];%11[^;];%10[^;];%149[^;];%19[^;];%f;%f;%f;%f;%19[^\n]",
-                   cliente->nome_completo, cliente->cpf, cliente->dateNascimento,
-                   cliente->endereco, cliente->telefone, &cliente->saldo, &cliente->bitcoin, &cliente->ethereum, &cliente->ripple, cliente->senha) == 10) {
+                    cliente->nome_completo, cliente->cpf, cliente->dateNascimento,
+                    cliente->endereco, cliente->telefone, &cliente->saldo, &cliente->bitcoin, &cliente->ethereum, &cliente->ripple, cliente->senha) == 10) {
             lt->qtd_cliente++;
         }
         // A linha com fprintf(stderr, ...) foi removida
@@ -34,7 +34,7 @@ int carregarClientes(ListaDeCliente *lt, const char *nome) {
 int salvarClientes(ListaDeCliente *lt, const char *nome) {
     FILE *fp = fopen(nome, "w");
     if (fp == NULL) return 1;
-	int i;
+    int i;
     for (i = 0; i < lt->qtd_cliente; i++) {
         fprintf(fp, "%s;%s;%s;%s;%s;%.2f;%.2f;%.2f;%.2f;%s\n",
                 lt->clientes[i].nome_completo, lt->clientes[i].cpf, lt->clientes[i].dateNascimento,
@@ -217,10 +217,10 @@ int sacar(ListaDeCliente *lt) {
     return 1;
 }
 
-int comprarCripto(ListaDeCliente *lt) {
+int comprarCripto(ListaDeCliente *lt, double bitcoin_price, double ethereum_price, double ripple_price) {
     char cpf[12];
     int escolha;
-    float valor;
+    float valor_reais;
 
     printf("Digite o CPF do cliente:\n");
     scanf(" %11s", cpf);
@@ -229,29 +229,29 @@ int comprarCripto(ListaDeCliente *lt) {
         if (strcmp(lt->clientes[i].cpf, cpf) == 0) {
             printf("Escolha a criptomoeda:\n1. Bitcoin\n2. Ethereum\n3. Ripple\n");
             scanf("%d", &escolha);
-            printf("Digite o valor a ser investido:\n");
-            scanf("%f", &valor);
+            printf("Digite o valor em Reais a ser investido:\n");
+            scanf("%f", &valor_reais);
 
-            if (valor > 0 && valor <= lt->clientes[i].saldo) {
+            if (valor_reais > 0 && valor_reais <= lt->clientes[i].saldo) {
                 switch (escolha) {
                     case 1:
-                        lt->clientes[i].bitcoin += valor * 0.98;
+                        lt->clientes[i].bitcoin += (valor_reais * 0.98) / bitcoin_price;
                         break;
                     case 2:
-                        lt->clientes[i].ethereum += valor * 0.99;
+                        lt->clientes[i].ethereum += (valor_reais * 0.99) / ethereum_price;
                         break;
                     case 3:
-                        lt->clientes[i].ripple += valor * 0.99;
+                        lt->clientes[i].ripple += (valor_reais * 0.99) / ripple_price;
                         break;
                     default:
                         printf("Opção inválida.\n");
                         return 1;
                 }
-                lt->clientes[i].saldo -= valor;
+                lt->clientes[i].saldo -= valor_reais;
                 salvarClientes(lt, NOME_ARQUIVO);
                 printf("Compra realizada com sucesso.\n");
                 return 0;
-            } else if (valor <= 0) {
+            } else if (valor_reais <= 0) {
                 printf("Valor inválido para compra.\n");
                 return 1;
             } else {
@@ -265,10 +265,10 @@ int comprarCripto(ListaDeCliente *lt) {
     return 1;
 }
 
-int venderCripto(ListaDeCliente *lt) {
+int venderCripto(ListaDeCliente *lt, double bitcoin_price, double ethereum_price, double ripple_price) {
     char cpf[12];
     int escolha;
-    float valor;
+    float quantidade;
 
     printf("Digite o CPF do cliente:\n");
     scanf(" %11s", cpf);
@@ -278,31 +278,31 @@ int venderCripto(ListaDeCliente *lt) {
             printf("Escolha a criptomoeda para venda:\n1. Bitcoin\n2. Ethereum\n3. Ripple\n");
             scanf("%d", &escolha);
             printf("Digite a quantidade a ser vendida:\n");
-            scanf("%f", &valor);
+            scanf("%f", &quantidade);
 
             switch (escolha) {
                 case 1:
-                    if (valor > 0 && valor <= lt->clientes[i].bitcoin) {
-                        lt->clientes[i].saldo += valor * 0.97;
-                        lt->clientes[i].bitcoin -= valor;
+                    if (quantidade > 0 && quantidade <= lt->clientes[i].bitcoin) {
+                        lt->clientes[i].saldo += quantidade * bitcoin_price * 0.97;
+                        lt->clientes[i].bitcoin -= quantidade;
                     } else {
                         printf("Quantidade inválida ou insuficiente de Bitcoin.\n");
                         return 1;
                     }
                     break;
                 case 2:
-                    if (valor > 0 && valor <= lt->clientes[i].ethereum) {
-                        lt->clientes[i].saldo += valor * 0.98;
-                        lt->clientes[i].ethereum -= valor;
+                    if (quantidade > 0 && quantidade <= lt->clientes[i].ethereum) {
+                        lt->clientes[i].saldo += quantidade * ethereum_price * 0.98;
+                        lt->clientes[i].ethereum -= quantidade;
                     } else {
                         printf("Quantidade inválida ou insuficiente de Ethereum.\n");
                         return 1;
                     }
                     break;
                 case 3:
-                    if (valor > 0 && valor <= lt->clientes[i].ripple) {
-                        lt->clientes[i].saldo += valor * 0.99;
-                        lt->clientes[i].ripple -= valor;
+                    if (quantidade > 0 && quantidade <= lt->clientes[i].ripple) {
+                        lt->clientes[i].saldo += quantidade * ripple_price * 0.99;
+                        lt->clientes[i].ripple -= quantidade;
                     } else {
                         printf("Quantidade inválida ou insuficiente de Ripple.\n");
                         return 1;
@@ -361,14 +361,24 @@ int login(ListaDeCliente *lt) {
 
     while (1) { // Loop infinito para tentativas de login
         printf("Digite o CPF (ou 'sair' para encerrar): ");
-        scanf(" %11s", cpf_digitado);
+        if (scanf(" %11s", cpf_digitado) != 1) {
+            printf("Entrada inválida.\n");
+            while (getchar() != '\n');
+            continue;
+        }
+        while (getchar() != '\n');
 
         if (strcmp(cpf_digitado, "sair") == 0) {
             return 1; // Encerra o programa se o usuário digitar "sair"
         }
 
         printf("Digite a senha: ");
-        scanf(" %19s", senha_digitada);
+        if (scanf(" %19s", senha_digitada) != 1) {
+            printf("Entrada inválida.\n");
+            while (getchar() != '\n');
+            continue;
+        }
+        while (getchar() != '\n');
 
         int i;
         for (i = 0; i < lt->qtd_cliente; i++) {

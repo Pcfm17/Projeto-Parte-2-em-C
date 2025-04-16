@@ -1,1 +1,0 @@
-# Projeto-Parte-2-em-C
